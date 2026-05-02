@@ -28,6 +28,7 @@ struct rk3568_pmuclk_plat {
 };
 #endif
 
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 #define RK3568_CPUCLK_RATE(_rate, _aclk_div, _pclk_div)		\
 {								\
 	.rate	= _rate##U,					\
@@ -2322,6 +2323,7 @@ static ulong rk3568_uart_set_rate(struct rk3568_clk_priv *priv,
 
 	return rk3568_uart_get_rate(priv, clk_id);
 }
+#endif
 
 static ulong rk3568_clk_get_rate(struct clk *clk)
 {
@@ -2334,6 +2336,7 @@ static ulong rk3568_clk_get_rate(struct clk *clk)
 	}
 
 	switch (clk->id) {
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 	case PLL_APLL:
 	case ARMCLK:
 		rate = rockchip_pll_get_rate(&rk3568_pll_clks[APLL], priv->cru,
@@ -2493,6 +2496,7 @@ static ulong rk3568_clk_get_rate(struct clk *clk)
 	case CPLL_25M:
 		rate = rk3568_cpll_div_get_rate(priv, clk->id);
 		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -2511,6 +2515,7 @@ static ulong rk3568_clk_set_rate(struct clk *clk, ulong rate)
 	}
 
 	switch (clk->id) {
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 	case PLL_APLL:
 	case ARMCLK:
 		if (priv->armclk_hz)
@@ -2680,6 +2685,7 @@ static ulong rk3568_clk_set_rate(struct clk *clk, ulong rate)
 	case CPLL_25M:
 		ret = rk3568_cpll_div_set_rate(priv, clk->id, rate);
 		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -2688,6 +2694,7 @@ static ulong rk3568_clk_set_rate(struct clk *clk, ulong rate)
 };
 
 #if (CONFIG_IS_ENABLED(OF_CONTROL)) || (!CONFIG_IS_ENABLED(OF_PLATDATA))
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 static int rk3568_gmac0_src_set_parent(struct clk *clk, struct clk *parent)
 {
 	struct rk3568_clk_priv *priv = dev_get_priv(clk->dev);
@@ -2830,10 +2837,12 @@ static int rk3568_rkvdec_set_parent(struct clk *clk, struct clk *parent)
 
 	return 0;
 }
+#endif
 
 static int rk3568_clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	switch (clk->id) {
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 	case SCLK_GMAC0:
 		return rk3568_gmac0_src_set_parent(clk, parent);
 	case SCLK_GMAC1:
@@ -2855,6 +2864,7 @@ static int rk3568_clk_set_parent(struct clk *clk, struct clk *parent)
 	case SCLK_GMAC1_RGMII_SPEED:
 	case SCLK_GMAC1_RMII_SPEED:
 		break;
+#endif
 	default:
 		return -ENOENT;
 	}
@@ -2871,6 +2881,7 @@ static struct clk_ops rk3568_clk_ops = {
 #endif
 };
 
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 static void rk3568_clk_init(struct rk3568_clk_priv *priv)
 {
 	int ret;
@@ -2910,18 +2921,14 @@ static void rk3568_clk_init(struct rk3568_clk_priv *priv)
 	priv->ppll_hz = rk3568_pmu_pll_get_rate(priv, PPLL);
 	priv->hpll_hz = rk3568_pmu_pll_get_rate(priv, HPLL);
 }
+#endif
 
 static int rk3568_clk_probe(struct udevice *dev)
 {
 	struct rk3568_clk_priv *priv = dev_get_priv(dev);
-#if CONFIG_IS_ENABLED(OF_PLATDATA)
-	struct rk3568_clk_plat *plat = dev_get_plat(dev);
-#endif
+#if !IS_ENABLED(CONFIG_TPL_BUILD)
 	int ret;
 
-#if CONFIG_IS_ENABLED(OF_PLATDATA)
-	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
-#endif
 	priv->grf = syscon_get_first_range(ROCKCHIP_SYSCON_GRF);
 	if (IS_ERR(priv->grf))
 		return PTR_ERR(priv->grf);
@@ -2934,7 +2941,12 @@ static int rk3568_clk_probe(struct udevice *dev)
 		debug("%s clk_set_defaults failed %d\n", __func__, ret);
 	else
 		priv->sync_kernel = true;
+#endif
+#if CONFIG_IS_ENABLED(OF_PLATDATA)
+	struct rk3568_clk_plat *plat = dev_get_plat(dev);
 
+	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
+#endif
 	return 0;
 }
 
