@@ -65,6 +65,9 @@ jobs:
           cd ../optee_os
           git fetch --depth 1 origin refs/pull/7791/head:rk3568-pr
           git checkout rk3568-pr
+          # PR #7791 conf.mk gates on PLATFORM_FLAVOR=rk3568 but its
+          # platform_config.h dispatches on rk356x - bridge the mismatch
+          sed -i 's/#elif defined(PLATFORM_FLAVOR_rk356x)/#elif defined(PLATFORM_FLAVOR_rk3568) || defined(PLATFORM_FLAVOR_rk356x)/' core/arch/arm/plat-rockchip/platform_config.h
           ls core/arch/arm/plat-rockchip/platform_rk3568.c
 
       - name: Build OP-TEE (rockchip rk3568 flavor covers rk3566)
@@ -72,12 +75,12 @@ jobs:
           set -euxo pipefail
           make -C ../optee_os -j"$(nproc)" \
             PLATFORM=rockchip \
-            PLATFORM_FLAVOR=rk356x \
+            PLATFORM_FLAVOR=rk3568 \
             CFG_ARM64_core=y \
             CFG_USER_TA_TARGETS=ta_arm64 \
             CROSS_COMPILE64="${CROSS_COMPILE}"
-          ls -l ../optee_os/out/plat-rockchip/rk356x/core/tee.bin
-          cp ../optee_os/out/plat-rockchip/rk356x/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
+          ls -l ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
+          cp ../optee_os/out/plat-rockchip/rk3568/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
 
       - name: Configure (pinetab2-rk3566_defconfig)
         run: |
