@@ -29,6 +29,9 @@ config TARGET_MICROCHIP_GENERIC
 config TARGET_MILKV_DUO
 	bool "Support Milk-v Duo Board"
 
+config TARGET_MILKV_DUO_256M
+	bool "Support Milk-V Duo 256M Board"
+
 config TARGET_OPENPITON_RISCV64
 	bool "Support RISC-V cores on OpenPiton SoC"
 
@@ -118,6 +121,7 @@ source "board/sifive/unleashed/Kconfig"
 source "board/sifive/unmatched/Kconfig"
 source "board/sipeed/maix/Kconfig"
 source "board/sophgo/milkv_duo/Kconfig"
+source "board/sophgo/milkv_duo_256m/Kconfig"
 source "board/sophgo/licheerv_nano/Kconfig"
 source "board/spacemit/k1/Kconfig"
 source "board/starfive/visionfive2/Kconfig"
@@ -378,7 +382,7 @@ config DMA_ADDR_T_64BIT
 	default y if 64BIT
 
 config RISCV_ACLINT
-	bool
+	bool "RISC-V ACLINT support"
 	depends on RISCV_MMODE
 	select REGMAP
 	select SYSCON
@@ -387,7 +391,7 @@ config RISCV_ACLINT
 	  associated with software and timer interrupts.
 
 config SPL_RISCV_ACLINT
-	bool
+	bool "RISC-V ACLINT support in SPL"
 	depends on SPL_RISCV_MMODE
 	select SPL_REGMAP
 	select SPL_SYSCON
