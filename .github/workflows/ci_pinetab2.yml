@@ -50,13 +50,15 @@ jobs:
             bl31
           ls -l ../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf
 
-      - name: Fetch rkbin rk3566 TPL (DDR blob)
+      - name: Fetch rkbin rk3566 TPL (DDR) + rk3568 bl32 (OP-TEE) blobs
         run: |
           set -euxo pipefail
           mkdir -p ../rkbin
           curl -sSL -o ../rkbin/rk3566_ddr.bin \
             "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3566_ddr_1056MHz_v1.26.bin"
-          sha256sum ../rkbin/rk3566_ddr.bin
+          curl -sSL -o ../rkbin/rk3568_bl32.bin \
+            "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3568_bl32_v2.18.bin"
+          sha256sum ../rkbin/*
 
       - name: Configure (pinetab2-rk3566_defconfig)
         run: |
