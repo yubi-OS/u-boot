@@ -58,14 +58,13 @@ jobs:
             "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3566_ddr_1056MHz_v1.26.bin"
           sha256sum ../rkbin/rk3566_ddr.bin
 
-      - name: Fetch optee_os (fork) with rk3568 platform (PR #7791)
+      - name: Fetch optee_os at rk3568-platform branch (upstream PR #7791)
         run: |
           set -euxo pipefail
-          git clone --depth 1 https://github.com/yubi-OS/optee_os.git ../optee_os
+          git clone --depth 1 https://github.com/OP-TEE/optee_os.git ../optee_os
           cd ../optee_os
-          curl -sSL -o /tmp/rk3568-pr.diff "https://github.com/OP-TEE/optee_os/pull/7791.diff"
-          git apply --check /tmp/rk3568-pr.diff
-          git apply /tmp/rk3568-pr.diff
+          git fetch --depth 1 origin refs/pull/7791/head:rk3568-pr
+          git checkout rk3568-pr
           ls core/arch/arm/plat-rockchip/platform_rk3568.c
 
       - name: Build OP-TEE (rockchip rk3568 flavor covers rk3566)
@@ -77,6 +76,7 @@ jobs:
             CFG_ARM64_core=y \
             CROSS_COMPILE64="${CROSS_COMPILE}"
           ls -l ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
+          cp ../optee_os/out/plat-rockchip/rk3568/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
 
       - name: Configure (pinetab2-rk3566_defconfig)
         run: |
@@ -102,7 +102,7 @@ jobs:
             u-boot-rockchip-spi.bin
             idbloader.img
             u-boot.itb
+            tee.bin
             .config
-            ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
           if-no-files-found: warn
           retention-days: 30
