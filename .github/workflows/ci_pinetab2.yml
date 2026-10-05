@@ -50,15 +50,33 @@ jobs:
             bl31
           ls -l ../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf
 
-      - name: Fetch rkbin rk3566 TPL (DDR) + rk3568 bl32 (OP-TEE) blobs
+      - name: Fetch rkbin rk3566 TPL (DDR blob)
         run: |
           set -euxo pipefail
           mkdir -p ../rkbin
           curl -sSL -o ../rkbin/rk3566_ddr.bin \
             "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3566_ddr_1056MHz_v1.26.bin"
-          curl -sSL -o ../rkbin/rk3568_bl32.bin \
-            "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3568_bl32_v2.18.bin"
-          sha256sum ../rkbin/*
+          sha256sum ../rkbin/rk3566_ddr.bin
+
+      - name: Fetch optee_os (fork) with rk3568 platform (PR #7791)
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 https://github.com/yubi-OS/optee_os.git ../optee_os
+          cd ../optee_os
+          curl -sSL -o /tmp/rk3568-pr.diff "https://github.com/OP-TEE/optee_os/pull/7791.diff"
+          git apply --check /tmp/rk3568-pr.diff
+          git apply /tmp/rk3568-pr.diff
+          ls core/arch/arm/plat-rockchip/platform_rk3568.c
+
+      - name: Build OP-TEE (rockchip rk3568 flavor covers rk3566)
+        run: |
+          set -euxo pipefail
+          make -C ../optee_os -j"$(nproc)" \
+            PLATFORM=rockchip \
+            PLATFORM_FLAVOR=rk3568 \
+            CFG_ARM64_core=y \
+            CROSS_COMPILE64="${CROSS_COMPILE}"
+          ls -l ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
 
       - name: Configure (pinetab2-rk3566_defconfig)
         run: |
@@ -70,7 +88,8 @@ jobs:
           set -euxo pipefail
           make -j"$(nproc)" CROSS_COMPILE="${CROSS_COMPILE}" ARCH=arm \
             BL31="../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf" \
-            ROCKCHIP_TPL="../rkbin/rk3566_ddr.bin"
+            ROCKCHIP_TPL="../rkbin/rk3566_ddr.bin" \
+            TEE="../optee_os/out/plat-rockchip/rk3568/core/tee.bin"
           ls -l u-boot-rockchip.bin u-boot-rockchip-spi.bin idbloader.img u-boot.itb
 
       - name: Upload artifacts
@@ -84,5 +103,6 @@ jobs:
             idbloader.img
             u-boot.itb
             .config
+            ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
           if-no-files-found: warn
           retention-days: 30
