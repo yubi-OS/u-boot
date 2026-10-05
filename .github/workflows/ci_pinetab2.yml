@@ -74,6 +74,7 @@ jobs:
             PLATFORM=rockchip \
             PLATFORM_FLAVOR=rk356x \
             CFG_ARM64_core=y \
+            CFG_USER_TA_TARGETS=ta_arm64 \
             CROSS_COMPILE64="${CROSS_COMPILE}"
           ls -l ../optee_os/out/plat-rockchip/rk356x/core/tee.bin
           cp ../optee_os/out/plat-rockchip/rk356x/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
