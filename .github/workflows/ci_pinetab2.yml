@@ -72,11 +72,11 @@ jobs:
           set -euxo pipefail
           make -C ../optee_os -j"$(nproc)" \
             PLATFORM=rockchip \
-            PLATFORM_FLAVOR=rk3568 \
+            PLATFORM_FLAVOR=rk356x \
             CFG_ARM64_core=y \
             CROSS_COMPILE64="${CROSS_COMPILE}"
-          ls -l ../optee_os/out/plat-rockchip/rk3568/core/tee.bin
-          cp ../optee_os/out/plat-rockchip/rk3568/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
+          ls -l ../optee_os/out/plat-rockchip/rk356x/core/tee.bin
+          cp ../optee_os/out/plat-rockchip/rk356x/core/tee.bin "$GITHUB_WORKSPACE/tee.bin"
 
       - name: Configure (pinetab2-rk3566_defconfig)
         run: |
@@ -89,7 +89,7 @@ jobs:
           make -j"$(nproc)" CROSS_COMPILE="${CROSS_COMPILE}" ARCH=arm \
             BL31="../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf" \
             ROCKCHIP_TPL="../rkbin/rk3566_ddr.bin" \
-            TEE="../optee_os/out/plat-rockchip/rk3568/core/tee.bin"
+            TEE="../optee_os/out/plat-rockchip/rk356x/core/tee.bin"
           ls -l u-boot-rockchip.bin u-boot-rockchip-spi.bin idbloader.img u-boot.itb
 
       - name: Upload artifacts
