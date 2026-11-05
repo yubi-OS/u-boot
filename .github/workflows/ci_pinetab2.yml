@@ -1,7 +1,7 @@
 name: ci_pinetab2
 
 # PineTab 2 (rk3566) U-Boot chain: TF-A bl31 (rk3568 plat covers rk3566) +
-# rkbin TPL (rk3566 DDR blob) + U-Boot (pinetab2-rk3566_defconfig).
+# open-source U-Boot TPL DRAM init (sdram_rk3568.c @ 1056 MHz) + U-Boot (pinetab2-rk3566_defconfig).
 # Produces u-boot-rockchip.bin (SD/eMMC at sector 64) and
 # u-boot-rockchip-spi.bin (SPI flash at offset 0).
 
@@ -50,14 +50,6 @@ jobs:
             bl31
           ls -l ../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf
 
-      - name: Fetch rkbin rk3566 TPL (DDR blob)
-        run: |
-          set -euxo pipefail
-          mkdir -p ../rkbin
-          curl -sSL -o ../rkbin/rk3566_ddr.bin \
-            "https://raw.githubusercontent.com/rockchip-linux/rkbin/master/bin/rk35/rk3566_ddr_1056MHz_v1.26.bin"
-          sha256sum ../rkbin/rk3566_ddr.bin
-
       - name: Fetch optee_os at rk3568-platform branch (upstream PR #7791)
         run: |
           set -euxo pipefail
@@ -87,14 +79,13 @@ jobs:
           set -euxo pipefail
           make CROSS_COMPILE="${CROSS_COMPILE}" ARCH=arm pinetab2-rk3566_defconfig
 
-      - name: Build U-Boot
+      - name: Build U-Boot (with open-source TPL DRAM init)
         run: |
           set -euxo pipefail
           make -j"$(nproc)" CROSS_COMPILE="${CROSS_COMPILE}" ARCH=arm \
             BL31="../arm-trusted-firmware/build/rk3568/release/bl31/bl31.elf" \
-            ROCKCHIP_TPL="../rkbin/rk3566_ddr.bin" \
             TEE="../optee_os/out/arm-plat-rockchip/core/tee.bin"
-          ls -l u-boot-rockchip.bin u-boot-rockchip-spi.bin idbloader.img u-boot.itb
+          ls -l tpl/u-boot-tpl.bin u-boot-rockchip.bin u-boot-rockchip-spi.bin idbloader.img u-boot.itb
 
       - name: Upload artifacts
         if: always()
