@@ -101,18 +101,21 @@ static struct mmc *get_mmc(struct optee_private *priv, int dev_id)
 
 static u32 rpmb_get_dev_info(u16 dev_id, struct rpmb_dev_info *info)
 {
-	struct mmc *mmc = find_mmc_device(dev_id);
+	static bool rpmb_init_failed[4];
+	struct mmc *mmc;
 	int i;
 
+	if (dev_id < ARRAY_SIZE(rpmb_init_failed) && rpmb_init_failed[dev_id])
+		return TEE_ERROR_NOT_SUPPORTED;
+
+	mmc = find_mmc_device(dev_id);
 	if (!mmc)
 		return TEE_ERROR_ITEM_NOT_FOUND;
 
 	if (mmc_init(mmc)) {
-		static bool rpmb_init_err_logged;
-		if (!rpmb_init_err_logged) {
-			log(LOGC_BOARD, LOGL_ERR, "%s:MMC device %d init failed\n", __func__, dev_id);
-			rpmb_init_err_logged = true;
-		}
+		if (dev_id < ARRAY_SIZE(rpmb_init_failed))
+			rpmb_init_failed[dev_id] = true;
+		log(LOGC_BOARD, LOGL_ERR, "%s:MMC device %d init failed\n", __func__, dev_id);
 		return TEE_ERROR_NOT_SUPPORTED;
 	}
 

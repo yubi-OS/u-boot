@@ -1012,7 +1012,7 @@ efi_status_t efi_init_variables(void)
 		return ret;
 
 	if (IS_ENABLED(CONFIG_EFI_SECURE_BOOT) && !efi_secure_boot_enabled()) {
-		static const char * const parts[] = { "1:1", "0:1", "2:1" };
+		static const char * const parts[] = { "1:1" };
 		static const struct {
 			const char *path;
 			const u16 *name;

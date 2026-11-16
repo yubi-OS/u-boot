@@ -53,8 +53,8 @@
 #define DWCMSHC_HOST_CTRL3		0x508
 #define DWCMSHC_EMMC_EMMC_CTRL		0x52c
 #define DWCMSHC_CARD_IS_EMMC		BIT(0)
-#define DWCMSHC_EMMC_RST_N		BIT(3)
-#define DWCMSHC_EMMC_RST_N_OE		BIT(4)
+#define DWCMSHC_EMMC_RST_N		BIT(2)
+#define DWCMSHC_EMMC_RST_N_OE		BIT(3)
 #define DWCMSHC_ENHANCED_STROBE		BIT(8)
 #define DECMSHC_EMMC_MISC_CON		0x81c
 #define MISC_INTCLK_EN			BIT(1)
@@ -318,9 +318,6 @@ static void rk3568_sdhci_set_clock(struct sdhci_host *host, u32 div)
 	struct mmc *mmc = host->mmc;
 	uint clock = mmc->clock;
 	ulong rate;
-
-	if (clock > 0 && clock <= 400000)
-		clock = 375000;
 
 	rate = clk_set_rate(&priv->emmc_clk, clock);
 	if (IS_ERR_VALUE(rate))
@@ -677,13 +674,26 @@ static int rockchip_sdhci_probe(struct udevice *dev)
 		sdhci_writel(host, ctrl3, DWCMSHC_HOST_CTRL3);
 		sdhci_writel(host, sdhci_readl(host, DECMSHC_EMMC_MISC_CON) | MISC_INTCLK_EN,
 			     DECMSHC_EMMC_MISC_CON);
-		/* Pulse eMMC hardware reset (RST_n) and release high */
+		/*
+		 * Re-apply RK3588 EMMC_IOC drive strength (clock 25ohm, cmd/data 50ohm)
+		 * and pull-up on GPIO2_A3 (emmc_rstn) after pinctrl state setup, then
+		 * pulse RST_n (BIT(2)) with OE (BIT(3)) enabled and release high.
+		 */
+		if (device_is_compatible(dev, "rockchip,rk3588-dwcmshc")) {
+			writel(0x00770052, (void *)0xfd5fd040);
+			writel(0x77772222, (void *)0xfd5fd058);
+			writel(0x77772222, (void *)0xfd5fd05c);
+			writel(0x00c00040, (void *)0xfd5fd120);
+			/* Also set GPIO2_A3 output high in GPIO2 bank in case mux is GPIO */
+			writel(0x00080008, (void *)0xfec30000);
+			writel(0x00080008, (void *)0xfec30008);
+		}
 		sdhci_writew(host, DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N_OE,
 			     DWCMSHC_EMMC_EMMC_CTRL);
 		udelay(20);
 		sdhci_writew(host, DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE,
 			     DWCMSHC_EMMC_EMMC_CTRL);
-		udelay(500);
+		udelay(2000);
 	}
 	return ret;
 }
