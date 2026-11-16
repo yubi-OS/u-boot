@@ -39,6 +39,11 @@
 #define BUS_IOC_GPIO2D_IOMUX_SEL_H	0x5c
 #define BUS_IOC_GPIO3A_IOMUX_SEL_L	0x60
 
+#define EMMC_IOC_BASE			0xfd5fd000
+#define EMMC_IOC_GPIO2A_DS_L		0x40
+#define EMMC_IOC_GPIO2D_DS_L		0x58
+#define EMMC_IOC_GPIO2D_DS_H		0x5c
+
 #define SYS_GRF_FORCE_JTAG		BIT(14)
 
 /**
@@ -225,6 +230,17 @@ int arch_cpu_init(void)
 	writel(0xffff0188, USB_GRF_BASE + USB3OTG0_CON1);
 	writel(0xffff0188, USB_GRF_BASE + USB3OTG1_CON1);
 #endif
+
+	/*
+	 * Set eMMC IO drive strength (data/cmd: 50ohm, clock: 25ohm) and
+	 * restore eMMC IOMUX in case BootROM probed FSPI_M0 before SDMMC/SPI.
+	 */
+	writel(0x00770052, EMMC_IOC_BASE + EMMC_IOC_GPIO2A_DS_L);
+	writel(0x77772222, EMMC_IOC_BASE + EMMC_IOC_GPIO2D_DS_L);
+	writel(0x77772222, EMMC_IOC_BASE + EMMC_IOC_GPIO2D_DS_H);
+	writel(0xffff1111, BUS_IOC_BASE + BUS_IOC_GPIO2A_IOMUX_SEL_L);
+	writel(0xffff1111, BUS_IOC_BASE + BUS_IOC_GPIO2D_IOMUX_SEL_L);
+	writel(0xffff1111, BUS_IOC_BASE + BUS_IOC_GPIO2D_IOMUX_SEL_H);
 
 	return 0;
 }

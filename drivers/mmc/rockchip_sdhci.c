@@ -47,10 +47,17 @@
 #define ARASAN_VENDOR_REGISTER		0x78
 #define ARASAN_VENDOR_ENHANCED_STROBE	BIT(0)
 
+#include <reset.h>
+
 /* Rockchip specific Registers */
+#define DWCMSHC_HOST_CTRL3		0x508
 #define DWCMSHC_EMMC_EMMC_CTRL		0x52c
 #define DWCMSHC_CARD_IS_EMMC		BIT(0)
+#define DWCMSHC_EMMC_RST_N		BIT(3)
+#define DWCMSHC_EMMC_RST_N_OE		BIT(4)
 #define DWCMSHC_ENHANCED_STROBE		BIT(8)
+#define DECMSHC_EMMC_MISC_CON		0x81c
+#define MISC_INTCLK_EN			BIT(1)
 #define DWCMSHC_EMMC_AT_CTRL		0x540
 #define EMMC_AT_CTRL_TUNE_CLK_STOP_EN	BIT(16)
 #define EMMC_AT_CTRL_PRE_CHANGE_DLY	17
@@ -309,9 +316,13 @@ static void rk3568_sdhci_set_clock(struct sdhci_host *host, u32 div)
 {
 	struct rockchip_sdhc *priv = container_of(host, struct rockchip_sdhc, host);
 	struct mmc *mmc = host->mmc;
+	uint clock = mmc->clock;
 	ulong rate;
 
-	rate = clk_set_rate(&priv->emmc_clk, mmc->clock);
+	if (clock > 0 && clock <= 400000)
+		clock = 375000;
+
+	rate = clk_set_rate(&priv->emmc_clk, clock);
 	if (IS_ERR_VALUE(rate))
 		printf("%s: Set clock rate failed: %ld\n", __func__, (long)rate);
 }
@@ -323,6 +334,17 @@ static int rk3568_sdhci_config_dll(struct sdhci_host *host, u32 clock, bool enab
 	struct mmc *mmc = host->mmc;
 	int val, ret;
 	u32 extra, txclk_tapnum, dll_tap_value;
+
+	/* Ensure eMMC card mode, RST_n deasserted, internal clock enabled, and cmd conflict check disabled */
+	extra = sdhci_readl(host, DWCMSHC_HOST_CTRL3);
+	extra &= ~BIT(0);
+	extra |= BIT(4);
+	sdhci_writel(host, extra, DWCMSHC_HOST_CTRL3);
+	extra = sdhci_readl(host, DECMSHC_EMMC_MISC_CON);
+	sdhci_writel(host, extra | MISC_INTCLK_EN, DECMSHC_EMMC_MISC_CON);
+	extra = sdhci_readw(host, DWCMSHC_EMMC_EMMC_CTRL);
+	extra |= DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE;
+	sdhci_writew(host, extra, DWCMSHC_EMMC_EMMC_CTRL);
 
 	if (!enable) {
 		sdhci_writel(host, 0, DWCMSHC_EMMC_DLL_CTRL);
@@ -454,10 +476,7 @@ static int rk3568_sdhci_set_ios_post(struct sdhci_host *host)
 
 	reg = sdhci_readw(host, DWCMSHC_EMMC_EMMC_CTRL);
 
-	if (IS_MMC(mmc))
-		reg |= DWCMSHC_CARD_IS_EMMC;
-	else
-		reg &= ~DWCMSHC_CARD_IS_EMMC;
+	reg |= DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE;
 
 	if (mmc->selected_mode == MMC_HS_400_ES)
 		reg |= DWCMSHC_ENHANCED_STROBE;
@@ -640,7 +659,33 @@ static int rockchip_sdhci_probe(struct udevice *dev)
 	    dev_read_bool(dev, "u-boot,spl-fifo-mode"))
 		host->flags &= ~USE_DMA;
 
-	return sdhci_probe(dev);
+	{
+		struct reset_ctl_bulk resets;
+		if (!reset_get_bulk(dev, &resets)) {
+			reset_assert_bulk(&resets);
+			udelay(10);
+			reset_deassert_bulk(&resets);
+			udelay(100);
+		}
+	}
+
+	ret = sdhci_probe(dev);
+	if (!ret) {
+		u32 ctrl3 = sdhci_readl(host, DWCMSHC_HOST_CTRL3);
+		ctrl3 &= ~BIT(0);
+		ctrl3 |= BIT(4);
+		sdhci_writel(host, ctrl3, DWCMSHC_HOST_CTRL3);
+		sdhci_writel(host, sdhci_readl(host, DECMSHC_EMMC_MISC_CON) | MISC_INTCLK_EN,
+			     DECMSHC_EMMC_MISC_CON);
+		/* Pulse eMMC hardware reset (RST_n) and release high */
+		sdhci_writew(host, DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N_OE,
+			     DWCMSHC_EMMC_EMMC_CTRL);
+		udelay(20);
+		sdhci_writew(host, DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE,
+			     DWCMSHC_EMMC_EMMC_CTRL);
+		udelay(500);
+	}
+	return ret;
 }
 
 static int rockchip_sdhci_of_to_plat(struct udevice *dev)

@@ -108,7 +108,11 @@ static u32 rpmb_get_dev_info(u16 dev_id, struct rpmb_dev_info *info)
 		return TEE_ERROR_ITEM_NOT_FOUND;
 
 	if (mmc_init(mmc)) {
-		log(LOGC_BOARD, LOGL_ERR, "%s:MMC device %d init failed\n", __func__, dev_id);
+		static bool rpmb_init_err_logged;
+		if (!rpmb_init_err_logged) {
+			log(LOGC_BOARD, LOGL_ERR, "%s:MMC device %d init failed\n", __func__, dev_id);
+			rpmb_init_err_logged = true;
+		}
 		return TEE_ERROR_NOT_SUPPORTED;
 	}
 

@@ -21,6 +21,7 @@
 #include <efi_api.h>
 #include <efi_loader.h>
 #include <efi_variable.h>
+#include <fs.h>
 #include <malloc.h>
 #include <mapmem.h>
 #include <mm_communication.h>
@@ -1009,6 +1010,47 @@ efi_status_t efi_init_variables(void)
 	ret = efi_init_secure_state();
 	if (ret != EFI_SUCCESS)
 		return ret;
+
+	if (IS_ENABLED(CONFIG_EFI_SECURE_BOOT) && !efi_secure_boot_enabled()) {
+		static const char * const parts[] = { "1:1", "0:1", "2:1" };
+		static const struct {
+			const char *path;
+			const u16 *name;
+			const efi_guid_t *guid;
+		} vars[] = {
+			{ "/EFI/yubiOS/secureboot/db.auth", u"db", &efi_guid_image_security_database },
+			{ "/EFI/yubiOS/secureboot/KEK.auth", u"KEK", &efi_global_variable_guid },
+			{ "/EFI/yubiOS/secureboot/PK.auth", u"PK", &efi_global_variable_guid },
+		};
+		const u32 sb_attr = EFI_VARIABLE_NON_VOLATILE |
+				    EFI_VARIABLE_BOOTSERVICE_ACCESS |
+				    EFI_VARIABLE_RUNTIME_ACCESS |
+				    EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+		void *buf = malloc(16384);
+		int p;
+
+		for (p = 0; buf && p < ARRAY_SIZE(parts); p++) {
+			loff_t actlen = 0;
+			int v;
+			if (fs_set_blk_dev("mmc", parts[p], FS_TYPE_ANY))
+				continue;
+			if (!fs_exists("/EFI/yubiOS/secureboot/PK.auth"))
+				continue;
+			for (v = 0; v < ARRAY_SIZE(vars); v++) {
+				if (fs_set_blk_dev("mmc", parts[p], FS_TYPE_ANY))
+					break;
+				if (!fs_read(vars[v].path, map_to_sysmem(buf), 0, 16384, &actlen) &&
+				    actlen > 0) {
+					efi_set_variable_int(vars[v].name, vars[v].guid,
+							     sb_attr, (efi_uintn_t)actlen,
+							     buf, false);
+				}
+			}
+			if (efi_secure_boot_enabled())
+				break;
+		}
+		free(buf);
+	}
 
 	return EFI_SUCCESS;
 }

@@ -461,8 +461,10 @@ int sdhci_set_clock(struct mmc *mmc, unsigned int clock)
 		div >>= 1;
 	}
 
-	if (host->ops && host->ops->set_clock)
+	if (host->ops && host->ops->set_clock) {
 		host->ops->set_clock(host, div);
+		div = 0;
+	}
 
 	if (host->ops && host->ops->config_dll) {
 		ret = host->ops->config_dll(host, clock, true);
