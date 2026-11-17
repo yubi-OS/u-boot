@@ -319,6 +319,10 @@ static void rk3568_sdhci_set_clock(struct sdhci_host *host, u32 div)
 	uint clock = mmc->clock;
 	ulong rate;
 
+	/* Rockchip platform only supports 375KHz for identify mode */
+	if (clock > 0 && clock <= 400000)
+		clock = 375000;
+
 	rate = clk_set_rate(&priv->emmc_clk, clock);
 	if (IS_ERR_VALUE(rate))
 		printf("%s: Set clock rate failed: %ld\n", __func__, (long)rate);
@@ -340,8 +344,15 @@ static int rk3568_sdhci_config_dll(struct sdhci_host *host, u32 clock, bool enab
 	extra = sdhci_readl(host, DECMSHC_EMMC_MISC_CON);
 	sdhci_writel(host, extra | MISC_INTCLK_EN, DECMSHC_EMMC_MISC_CON);
 	extra = sdhci_readw(host, DWCMSHC_EMMC_EMMC_CTRL);
-	extra |= DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE;
-	sdhci_writew(host, extra, DWCMSHC_EMMC_EMMC_CTRL);
+	if ((extra & (DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE)) !=
+	    (DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE)) {
+		extra |= DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N | DWCMSHC_EMMC_RST_N_OE;
+		sdhci_writew(host, extra, DWCMSHC_EMMC_EMMC_CTRL);
+		udelay(2000);
+	} else if (!(extra & DWCMSHC_CARD_IS_EMMC)) {
+		extra |= DWCMSHC_CARD_IS_EMMC;
+		sdhci_writew(host, extra, DWCMSHC_EMMC_EMMC_CTRL);
+	}
 
 	if (!enable) {
 		sdhci_writel(host, 0, DWCMSHC_EMMC_DLL_CTRL);
@@ -684,9 +695,6 @@ static int rockchip_sdhci_probe(struct udevice *dev)
 			writel(0x77772222, (void *)0xfd5fd058);
 			writel(0x77772222, (void *)0xfd5fd05c);
 			writel(0x00c00040, (void *)0xfd5fd120);
-			/* Also set GPIO2_A3 output high in GPIO2 bank in case mux is GPIO */
-			writel(0x00080008, (void *)0xfec30000);
-			writel(0x00080008, (void *)0xfec30008);
 		}
 		sdhci_writew(host, DWCMSHC_CARD_IS_EMMC | DWCMSHC_EMMC_RST_N_OE,
 			     DWCMSHC_EMMC_EMMC_CTRL);
@@ -769,6 +777,7 @@ static const struct sdhci_data rk3588_data = {
 	.set_ios_post = rk3568_sdhci_set_ios_post,
 	.set_clock = rk3568_sdhci_set_clock,
 	.config_dll = rk3568_sdhci_config_dll,
+	.flags = FLAG_TAPVALUE_FROM_SW,
 	.hs200_txclk_tapnum = DLL_TXCLK_TAPNUM_DEFAULT,
 	.hs400_txclk_tapnum = 0x9,
 	.hs400_cmdout_tapnum = DLL_CMDOUT_TAPNUM_90_DEGREES,
