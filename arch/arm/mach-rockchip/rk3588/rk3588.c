@@ -67,10 +67,9 @@ const char * const boot_devices[BROM_LAST_BOOTSOURCE + 1] = {
 
 static struct mm_region rk3588_mem_map[] = {
 	{
-		/* 0x0..0x100000 is TF-A FIREWALL_DDR_RGN(0) Secure-only */
-		.virt = 0x100000UL,
-		.phys = 0x100000UL,
-		.size = 0xf000UL,
+		.virt = 0x0UL,
+		.phys = 0x0UL,
+		.size = 0x10f000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE
 	}, {
@@ -83,26 +82,7 @@ static struct mm_region rk3588_mem_map[] = {
 	}, {
 		.virt = 0x110000UL,
 		.phys = 0x110000UL,
-		.size = 0x2fef0000UL,
-		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
-			 PTE_BLOCK_INNER_SHARE
-	}, {
-		/*
-		 * OP-TEE Secure TZDRAM (0x30000000..0x32000000, FIREWALL_DDR_RGN(1))
-		 * and SHMEM (0x32000000..0x32400000): map non-cacheable/XN so EL2
-		 * never speculatively prefetches Secure DRAM (ESR 0xbe000011 SError)
-		 * and rockchip_dram_init_banksize() carves this hole out of gd->dram[].
-		 */
-		.virt = 0x30000000UL,
-		.phys = 0x30000000UL,
-		.size = 0x02400000UL,
-		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
-			 PTE_BLOCK_NON_SHARE |
-			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
-	}, {
-		.virt = 0x32400000UL,
-		.phys = 0x32400000UL,
-		.size = 0xbdc00000UL,
+		.size = 0xefef0000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE
 	}, {
